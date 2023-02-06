@@ -1,0 +1,10 @@
+[codec]
+0x10ec0295 0x103c8575 0
+
+[pincfg]
+0x12 0xB7A60130
+
+[hints]
+indep_hp=1
+vmaster=no
+
