@@ -1,4 +1,6 @@
 # [Guide] Splitting audio ports in Linux for simultaneous playback
+![Plasma audio volume widget showing splitted ports](https://github.com/luisbocanegra/linux-guide-split-audio-ports/assets/15076387/cd4fed59-f940-493b-87f1-018f1305e07d)
+
 
 ## Introduction
 On windows some laptops have the option to enable the playback of different
