@@ -1,53 +1,52 @@
 # [Guide] Splitting audio ports in Linux for simultaneous playback
-![Plasma audio volume widget showing splitted ports](https://github.com/luisbocanegra/linux-guide-split-audio-ports/assets/15076387/cd4fed59-f940-493b-87f1-018f1305e07d)
 
+![Plasma audio volume widget showing split ports](pics/linux-full-multistreaming-plasma-panel.png)
 
 ## Introduction
-On windows some laptops have the option to enable the playback of different
-audio streams on different audio outputs, for example you could listen to a
-video call in the browser through your wired headphones, while playing music
-from Spotify on the internal speakers.
 
-Such option can have a different name depending on the sound card or laptop's 
-vendor, for my laptop, an **HP Omen 15-dc100xxx with a ALC295 card** it is called `multistreaming`
-an can be enabled from the **OMEN Audio Control** program.
+On windows some laptops have the option to enable the playback of different audio streams on different audio outputs, for example you could listen to a video call in the browser through your wired headphones, while playing music from Spotify on the internal speakers.
 
-Here's some screenshot showcasing that feature on Windows (11)
+Such option can have a different name depending on the sound card or laptop's vendor, for my laptop, an **HP Omen 15-dc100xxx with a ALC295 card** it is called _multistreaming_ and can be enabled from the **OMEN Audio Control** program.
 
-<img src="pics/hp-omen-multistreaming-feature.png"  alt="multistreaming option in windows">
+Here's some screenshot showcasing that feature on Windows:
 
-And this is how you route programs' audio to an individual output
+![multistreaming option in windows OMEN Audio Control](pics/hp-omen-multistreaming-feature.png)
 
-<img src="pics/windows-volume-mixer.png"  alt="multistreaming option in windows">
+And this is how you route programs' audio to an individual output:
 
-### On Linux I don't have such an option, so can only listen one output at a time
+![volume mixer in windows](pics/windows-volume-mixer.png)
+
+On Linux I don't have such an option, so can only listen one output at a time
+
 That is:
+
 - You have to unplug your wired speakers/headphones to be able to play anything from the internal speakers,
 - And if you connect a wired speakers/headphones:
-  -  The internal speaker is muted, hidden from the gui and marked as unavailable
-        
-        <img src="pics/speakers-unavailable.png"  alt="multistreaming option in windows">
-  -  Audio streams are switched to your wired output without giving you the desired output option like windows does
-        
-        <img src="pics/linux-audio-mixer.png"  alt="pavucontrol without output option">
+  - The internal speaker is muted, hidden from the gui and marked as unavailable
+
+    ![speakers unavailable in linux](pics/speakers-unavailable.png)
+
+  - Audio streams are switched to your wired output without giving you the desired output option like windows does
+
+    ![applications without output option in pavucontrol](pics/linux-audio-mixer.png)
 
 ## The final result
+
 - Allow selecting and playing audio from the internal speakers while a wired output is connected
 - Play different audio streams on each card port, simultaneously
 - Have a separate audio sink for each output
 
-<img src="pics/linux-full-multistreaming.png"  alt="pavucontrol without output option">
+![pavucontrol with multistreaming enabled](pics/linux-full-multistreaming.png) **Note:** The program used in above screenshots is `pavucontrol`
 
-**NOTE: The program used in above screenshots is pavucontrol**
+## Requirements
 
-# Requirements:
 - PipeWire
 - alsa-utils
 - pavucontrol (optional)
 
-# 1 Preparations, analyze how the card appears on Linux
+## 1 Preparations, analyze how the card appears on Linux
 
-## 1.1 Gather some information about the card and the available audio sinks
+### 1.1 Gather some information about the card and the available audio sinks
 
 Run `pactl list cards` and save the output somewhere, bellow is a stripped
  version of mine to keep the important things
@@ -79,16 +78,19 @@ Card #46
                                 card.profile.port = "3"
                         Part of profile(s): output:analog-stereo, output:analog-stereo+input:analog-stereo
 ```
-**Card details**
+
+Card details:
+
 ```yaml
 Name: alsa_card.pci-0000_00_1f.3
 Ports: analog-output-speaker analog-output-headphones
 Profiles: output:analog-stereo input:analog-stereo output:analog-stereo+input:analog-stereo
 ```
+
 As we can see, this laptop has three audio profiles, one for all audio outputs 
 and other for all inputs, with an extra one that has both inputs and outputs (yours may vary)
 
-## 1.2 Inspect the audio sinks available for our sound card
+### 1.2 Inspect the audio sinks available for our sound card
 
 Run `pactl list sinks` and save the output, bellow is a stripped
 version of mine to keep the important things
@@ -118,51 +120,62 @@ Sink #47
         Formats:
                 pcm
 ```
-**Sink details**
+
+Sink details:
+
 ```yaml
 Name: alsa_output.pci-0000_00_1f.3.analog-stereo
 Ports: analog-output-speaker analog-output-headphones
 Active Port: analog-output-headphones
 ```
+
 As we can see, there is only one audio sink that can play audio on the two outputs individually (yours may vary)
 
-# 2 disable Headphone jack detection for speakers
-To do this we need to modify the alsa card profile for the speakers port which in my case is `analog-output-speaker`
+## 2 disable Headphone jack detection for speakers
 
-Open the file `/usr/share/alsa-card-profile/mixer/paths/` + `your-output-name` + `.conf` 
+To do this we need to modify the alsa mixer path for the speakers port which in my case is `analog-output-speaker`
 
-- Set `state.plugged = unknown` inside the `[Jack ...]` section that best matches the wired port name of your card in my case is `analog-output-headphones`:
-```ini
-[Jack Headphone]
-state.plugged = unknown
-state.unplugged = unknown
-```
-- Comment (by adding semi-colon on start of line) the `[Element ...]` that matches the selected `[Jack ...]`
-```ini
-; [Element Headphone]
-; switch = off
-; volume = off
-```
+Open the file `/usr/share/alsa-card-profile/mixer/paths/` + `your-output-name` + `.conf`
 
-Now restart the audio server by running: 
+- Set `state.plugged = unknown` inside the **Jack** section that best matches the wired port name of your card, in my case is `analog-output-headphones` so I use `[Jack Headphone]` one:
+
+    ```ini
+    [Jack Headphone]
+    state.plugged = unknown
+    state.unplugged = unknown
+    ```
+
+- Comment (by adding semi-colon on start of line) the **Element** section that matches the port `[Jack ...]` in my case is `[Element Headphone]`:
+
+    ```ini
+    ; [Element Headphone]
+    ; switch = off
+    ; volume = off
+    ```
+
+Save the changes and restart the audio server by running:
+
 ```sh
 systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber
 ```
 
-If everything went well you should have the speaker option available without having to unplug your wired device and 
-- Should be able to play audio on them (individually)
-- Audio streams should still change automatically from speakers to your wired output and viceversa when plugging/unplugging a wired device
+If everything went well you should have the speaker option available without having to unplug your wired device and
 
-<img src="pics/linux-audio-mixer-speakers-available.png"  alt="pavucontrol without output option">
+- Should be able to play audio on them (individually)
+- Audio streams should still change automatically from speakers to your wired output and vice versa when plugging/unplugging a wired device
+
+![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
 
 Good we're closer to our final goal, but you can stop here if this was your desired behavior...
 
-# 3 Patching the HD-Audio driver
+## 3 Splitting for simultaneous playback with alsa firmware patch (for different applications on each port)
 
-## 3.1 Analyze the card Subdevices 
-First we need to identify and check if our card has more than one subdevice and test if sound comes out of them
+### 3.1 Analyze the card sub devices
 
-Run 
+First we need to identify and check if our card has more than one sub device and test if sound comes out of them
+
+Run
+
 ```sh
 aplay -l
 ```
@@ -177,7 +190,7 @@ card 0: PCH [HDA Intel PCH], device 0: ALC295 Analog [ALC295 Analog]
 ...
 ```
 
-At this point, my card `card 0` (ALC295), has only one subdevice, you may have more, take note of this information as we'll need it later
+At this point, my card `card 0` (ALC295), has only one sub device, you may have more, take note of this information as we'll need it later
 
 We can confirm the playback (output) and capture (input) streams the card currently has with `cat /proc/asound/pcm`
 
@@ -186,71 +199,65 @@ We can confirm the playback (output) and capture (input) streams the card curren
 ...
 ```
 
-## 3.2 Making the patch file
+### 3.2 Making the alsa firmware patch file
 
-Run 
+Run
+
 ```sh
 cat /proc/asound/card*/codec#* | grep -E 'Codec|Vendor Id|Subsystem Id|Address'
 ```
-You'll get something like the following
+
+You'll get the codecs in the following format, pick the one that matches your card (mine is the `Realtek ALC295`):
 
 ```yaml
 Codec: Realtek ALC295
 Address: 0
 Vendor Id: 0x10ec0295
 Subsystem Id: 0x103c8575
-Codec: Intel Kabylake HDMI
-Address: 2
-Vendor Id: 0x8086280b
-Subsystem Id: 0x80860101
-```
-Realtek ALC295 is my sound card, the other is from the HDMI outputs
-
-With the above we can start our patch file, which will have the following structure (don't copy as is, read explanation below)
-
-```ini
-[codec]
-0x10ec0295 0x103c8575 0
-
-[hints]
-indep_hp=1
-vmaster=no
-```
-Below the line `[codec]` we should put the values of `vendor id`, the `subsystem id` and `address` in one line of the card, separated by spaces.
-
-Below `[hints]` we need to add what what is called hint strings
-
-- `indep_hp=yes` this will make for our jack output to be detected as an independent PCM stream with its own controls
-
-- `vmaster=no` will disable the virtual Master control so we can control volume on each device individually
-
-With our patch file ready it's time to add it to our system
-
-Create these two files:
-
-`/etc/modprobe.d/alsa-base.conf`
-```sh
-options snd-hda-intel patch=alc-sound-patch.fw
-```
-`/lib/firmware/alc-sound-patch.fw`
-
-```ini
-[codec]
-0x10ec0295 0x103c8575 0
-
-[hints]
-indep_hp=1
-vmaster=no
+...
 ```
 
-**Reboot to apply the changes**
+With the above we can start creating our patch file:
+
+- Create the file (don't copy as is, modify according to explanation bellow):
+
+    `/lib/firmware/alc-sound-patch.fw`
+
+    ```ini
+    [codec]
+    0x10ec0295 0x103c8575 0
+
+    [hints]
+    indep_hp=1
+    vmaster=no
+    ```
+
+    Below `[codec]` line we should put the values of `vendor id`, the `subsystem id` and `address` of the card, separated by spaces.
+
+    Below `[hints]` we need to add what is called hint strings
+
+  - `indep_hp=yes` this will make for our jack output to be detected as an independent PCM stream with its own controls (meaning it will split away from internal speakers as a separate audio sink for us to play specific app stream on it).
+
+  - `vmaster=no` will disable the virtual Master control so we can control volume on each port individually.
+- Next create the following file:
+
+    `/etc/modprobe.d/alsa-base.conf`
+
+    ```sh
+    options snd-hda-intel patch=alc-sound-patch.fw
+    ```
+
+- **Reboot to apply the changes**
+
+### 3.3 Verify that the patch works
 
 Run again
+
 ```sh
 aplay -l
 ```
 
-You'll get something like the following
+You _should_ get something like the following
 
 ```ini
 **** List of PLAYBACK Hardware Devices ****
@@ -261,6 +268,7 @@ card 0: PCH [HDA Intel PCH], device 2: ALC295 Alt Analog [ALC295 Alt Analog]
   Subdevices: 1/1
   Subdevice #0: subdevice #0
 ```
+
 Now the card `card 0` (ALC295), has an extra subdevice, interesting...
 
 We can confirm the playback (output) and capture (input) streams the card now has with `cat /proc/asound/pcm`
@@ -271,105 +279,61 @@ We can confirm the playback (output) and capture (input) streams the card now ha
 ...
 ```
 
-Let's try to play something on them shall we?
+#### 3.3.1 Identify what output each device corresponds to
 
-Plug-in your wired audio device then run `alsamixer -c0` (replace 0 with your card #number) and un-mute any muted device (the ones MM below the volume slider) pressing `m` and increase their volume to around 30 if the're on 0 then exit (press `Esc`)
+1. Plug-in your wired audio device then run `alsamixer -c0` (replace 0 with your card #number if needed)
+   1. Un-mute any muted device (the ones with MM below the volume slider) pressing `m`
+   2. Increase their volume to around 30 if the're on 0
+   3. Enable `Independent HP` if is not enabled
+   4. Press `Esc` to exit.
 
-<img src="pics/alsamixer-unmuted-outputs.png"  alt="alsamixer with unmuted outputs">
+   ![alsamixer with unmuted outputs](pics/alsamixer-unmuted-outputs.png)
 
-Run `speaker-test -Dhw:0,0 -c2` (replace 0,0 with the card #number and device #numbers from your card)
+2. Finally, save it by running
 
-For the device 0 (speaker-test -Dhw:0,0 -c2) I get the following and the sound comes out from the speakers, so `device 0 = speakers`
+    ```sh
+    sudo alsactl store
+    ```
 
-```sh
-speaker-test 1.2.8
+3. Stop any running pipewire services (may need to stop it multiple times if it gets restarted):
 
-Playback device is hw:0,0
-Stream parameters are 48000Hz, S16_LE, 2 channels
-Using 16 octaves of pink noise
-Rate set to 48000Hz (requested 48000Hz)
-Buffer size range from 64 to 1048576
-Period size range from 32 to 524288
-Using max buffer size 1048576
-Periods = 4
-was set period_size = 262144
-was set buffer_size = 1048576
- 0 - Front Left
- 1 - Front Right
-Time per period = 10.930565
-```
-Repeat for all the devices for your card and note which device corresponds to which physical output
+    ```sh
+    systemctl --user stop pipewire.service pipewire.socket pipewire-pulse.service pipewire-pulse.socket wireplumber.service
+    ```
 
-But you may I get the following error:
+4. Run `speaker-test -Dhw:0,0 -c2` (replace 0,0 with the card #number and device #numbers from your card from `aplay -l`)
 
-```sh
-speaker-test 1.2.8
+    For the device 0 (speaker-test -Dhw:0,0 -c2) the sound comes out from the speakers, so `device 0` is the speakers
 
-Playback device is hw:0,2
-Stream parameters are 48000Hz, S16_LE, 2 channels
-Using 16 octaves of pink noise
-Playback open error: -16,Device or resource busy
-```
+5. Repeat for all the devices for your card and note which device corresponds to which physical output
 
-This is because we have added `indep_hp` in the firmware patch but is not enabled by default
+So my card's outputs are the following (yours may vary):
 
-Run `alsamixer` and enable `Independent HP`, then try again.
-
-<img src="pics/alsamixer-indep-hp-enabled.png"  alt="alsamixer with Independent HP enabled">
-
-
-Save these configs with the command `sudo alsactl store`
-
-They will be saved in `/var/lib/alsa/asound.state`
-
-
-So my card's outputs are the following (yours will vary):
-
-- `0,0` Speakers (also handles microphones)
+- `0,0` Speakers (which also handles microphones, as we saw in `cat /proc/asound/pcm`)
 - `0,2` Headphones
 
-# 4 Making a custom alsa profile for our card
+## 4 Making a custom alsa profile for our card
 
-## 4.1 Make a new udev rule for the future profile of the card
+### 4.1 Now is time to do a recap of all information we have captured
 
-Create the file `/lib/udev/rules.d/91-pipewire-alsa.rules` (don't copy as is, read explanation below)
+Card details:
 
-```sh
-SUBSYSTEM!="sound", GOTO="pipewire_end"
-ACTION!="change", GOTO="pipewire_end"
-KERNEL!="card*", GOTO="pipewire_end"
-
-SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", ENV{ACP_PROFILE_SET}="my-profile.conf"
-
-LABEL="pipewire_end"
-```
-
-You need to replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
-
-```yaml
-00:1f.3 Audio device [0403]: Intel Corporation Cannon Lake PCH cAVS [8086:a348] (rev 10)
-```
-
-_vendor id is the first element between the square brackets and separated by a colon, second element is the device id_
-
-## 4.2 Making the custom profile for the card
-## Now is time to do a recap of all information we have captured
-
-**Card details**
 ```yaml
 Name: alsa_card.pci-0000_00_1f.3
 Ports: analog-output-speaker analog-output-headphones
 Profiles: output:analog-stereo input:analog-stereo output:analog-stereo+input:analog-stereo
 ```
 
-**Sink details**
+Sink details:
+
 ```yaml
 Name: alsa_output.pci-0000_00_1f.3.analog-stereo
 Ports: analog-output-speaker analog-output-headphones
 Active Port: analog-output-headphones
 ```
 
-**Card subdevices and captures/outputs location**
+Card sub devices and captures/outputs location:
+
 ```ini
 **** List of PLAYBACK Hardware Devices ****
 card 0: PCH [HDA Intel PCH], device 0: ALC295 Analog [ALC295 Analog]
@@ -393,8 +357,9 @@ So in my case I have:
   - `0,0` Speakers (also handles microphones)
   - `0,2` Headphones
 
-Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/my-profile.conf` and adapt it to your system according to the comments
+### 4.2 Create the profile
 
+Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/my-profile.conf` and adapt it to your system according to the comments
 
 ```ini
 ; This will let alsa generate automatic profiles (e.g internal speaker + microphone)
@@ -422,7 +387,7 @@ channel-map = left,right
 direction = output
 
 
-; This is the mapping that will handle internal and external microphones, as you could see the Card subdevices and captures/outputs location also had a capture device in the 0,0 subdevice location so let's add it here too (change the 0,0 to your subdevice location)
+; This is the mapping that will handle internal and external microphones, as you could see the Card sub devices and captures/outputs location also had a capture device in the 0,0 subdevice location so let's add it here too (change the 0,0 to your subdevice location)
 ; All the names here came from the default.conf profile set and you may have to adapt it if your input port name is not included
 
 [Mapping analog-stereo-input]
@@ -458,25 +423,55 @@ output-mappings = analog-stereo-headphone analog-stereo-speaker
 priority = 70
 ```
 
+### 4.3 Link the profile to the card
+
+Create the file `/lib/udev/rules.d/91-pipewire-alsa.rules` (don't copy as is, modify according to explanation bellow)
+
+```sh
+SUBSYSTEM!="sound", GOTO="pipewire_end"
+ACTION!="change", GOTO="pipewire_end"
+KERNEL!="card*", GOTO="pipewire_end"
+
+SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", ENV{ACP_PROFILE_SET}="my-profile.conf"
+
+LABEL="pipewire_end"
+```
+
+You need to replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
+
+```yaml
+00:1f.3 Audio device [0403]: Intel Corporation Cannon Lake PCH cAVS [8086:a348] (rev 10)
+```
+
+_vendor id is the first element between the square brackets and separated by a colon, second element is the device id_
+
 **Reboot to apply the changes**
+
+### 5 Verify the split worked
+
+Run
+
+```sh
+pactl list sinks | grep -E 'Name|Desc|State|Port
+```
 
 I everything went well you should have a separate audio sink for each output:
 
-```sh
- pactl list sinks | grep -E 'Name|Desc|State|Port'
-        State: RUNNING
-        Name: alsa_output.pci-0000_00_1f.3.analog-stereo-headphone
-        Description: Built-in Audio Headphones
-        Ports:
-        Active Port: analog-output-headphones
-        State: IDLE
-        Name: alsa_output.pci-0000_00_1f.3.analog-stereo-speaker
-        Description: Built-in Audio Speakers
-        Ports:
-        Active Port: analog-output-speaker
+```yaml
+State: RUNNING
+Name: alsa_output.pci-0000_00_1f.3.analog-stereo-headphone
+Description: Built-in Audio Headphones
+Ports:
+Active Port: analog-output-headphones
+State: IDLE
+Name: alsa_output.pci-0000_00_1f.3.analog-stereo-speaker
+Description: Built-in Audio Speakers
+Ports:
+Active Port: analog-output-speaker
 ```
 
-# Credits & Resources
+## Credits & Resources
+
 - Docs
   - [More Notes on HD-Audio Driver](https://docs.kernel.org/sound/hd-audio/notes.html)
 
