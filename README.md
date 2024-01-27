@@ -53,30 +53,30 @@ Run `pactl list cards` and save the output somewhere, bellow is a stripped
 
 ```yaml
 Card #46
-        Name: alsa_card.pci-0000_00_1f.3
-        Driver: alsa
-        ...
-        Profiles:
-                output:analog-stereo+input:analog-stereo: Analog Stereo Duplex (sinks: 1, sources: 1, priority: 6565, available: yes)
-                output:analog-stereo: Analog Stereo Output (sinks: 1, sources: 0, priority: 6500, available: yes)
-                input:analog-stereo: Analog Stereo Input (sinks: 0, sources: 1, priority: 65, available: yes)
-                pro-audio: Pro Audio (sinks: 4, sources: 1, priority: 1, available: yes)
-        Active Profile: output:analog-stereo+input:analog-stereo
-        Ports:
-                analog-output-speaker: Speakers (type: Speaker, priority: 10000, latency offset: 0 usec, availability group: Legacy 3, availability unknown)
-                        Properties:
-                                port.type = "speaker"
-                                port.availability-group = "Legacy 3"
-                                device.icon_name = "audio-speakers"
-                                card.profile.port = "2"
-                        Part of profile(s): output:analog-stereo, output:analog-stereo+input:analog-stereo
-                analog-output-headphones: Headphones (type: Headphones, priority: 9900, latency offset: 0 usec, availability group: Legacy 4, availability unknown)
-                        Properties:
-                                port.type = "headphones"
-                                port.availability-group = "Legacy 4"
-                                device.icon_name = "audio-headphones"
-                                card.profile.port = "3"
-                        Part of profile(s): output:analog-stereo, output:analog-stereo+input:analog-stereo
+    Name: alsa_card.pci-0000_00_1f.3
+    Driver: alsa
+    ...
+    Profiles:
+            output:analog-stereo+input:analog-stereo: Analog Stereo Duplex (sinks: 1, sources: 1, priority: 6565, available: yes)
+            output:analog-stereo: Analog Stereo Output (sinks: 1, sources: 0, priority: 6500, available: yes)
+            input:analog-stereo: Analog Stereo Input (sinks: 0, sources: 1, priority: 65, available: yes)
+            pro-audio: Pro Audio (sinks: 4, sources: 1, priority: 1, available: yes)
+    Active Profile: output:analog-stereo+input:analog-stereo
+    Ports:
+            analog-output-speaker: Speakers (type: Speaker, priority: 10000, latency offset: 0 usec, availability group: Legacy 3, availability unknown)
+                    Properties:
+                            port.type = "speaker"
+                            port.availability-group = "Legacy 3"
+                            device.icon_name = "audio-speakers"
+                            card.profile.port = "2"
+                    Part of profile(s): output:analog-stereo, output:analog-stereo+input:analog-stereo
+            analog-output-headphones: Headphones (type: Headphones, priority: 9900, latency offset: 0 usec, availability group: Legacy 4, availability unknown)
+                    Properties:
+                            port.type = "headphones"
+                            port.availability-group = "Legacy 4"
+                            device.icon_name = "audio-headphones"
+                            card.profile.port = "3"
+                    Part of profile(s): output:analog-stereo, output:analog-stereo+input:analog-stereo
 ```
 
 Card details:
@@ -97,28 +97,17 @@ version of mine to keep the important things
 
 ```yaml
 Sink #47
-        State: RUNNING
-        Name: alsa_output.pci-0000_00_1f.3.analog-stereo
-        Description: Built-in Audio Analog Stereo
-        Driver: PipeWire
-        Sample Specification: s32le 2ch 48000Hz
-        Channel Map: front-left,front-right
-        Owner Module: 4294967295
-        Mute: no
-        Volume: front-left: 13763 /  21% / -40.67 dB,   front-right: 13763 /  21% / -40.67 dB
-                balance 0.00
-        Base Volume: 65536 / 100% / 0.00 dB
-        Monitor Source: alsa_output.pci-0000_00_1f.3.analog-stereo.monitor
-        Latency: 0 usec, configured 0 usec
-        Flags: HARDWARE HW_MUTE_CTRL HW_VOLUME_CTRL DECIBEL_VOLUME LATENCY 
-        Properties:
-                ...
-        Ports:
-                analog-output-speaker: Speakers (type: Speaker, priority: 10000, availability group: Legacy 3, not available)
-                analog-output-headphones: Headphones (type: Headphones, priority: 9900, availability group: Legacy 4, available)
-        Active Port: analog-output-headphones
-        Formats:
-                pcm
+    State: RUNNING
+    Name: alsa_output.pci-0000_00_1f.3.analog-stereo
+    Description: Built-in Audio Analog Stereo
+    Driver: PipeWire
+    ...
+    Ports:
+            analog-output-speaker: Speakers (type: Speaker, priority: 10000, availability group: Legacy 3, not available)
+            analog-output-headphones: Headphones (type: Headphones, priority: 9900, availability group: Legacy 4, available)
+    Active Port: analog-output-headphones
+    Formats:
+            pcm
 ```
 
 Sink details:
@@ -133,31 +122,38 @@ As we can see, there is only one audio sink that can play audio on the two outpu
 
 ## 2 disable Headphone jack detection for speakers
 
-To do this we need to modify the alsa mixer path for the speakers port which in my case is `analog-output-speaker`
+To do this we need to modify the alsa mixer path in `/usr/share/alsa-card-profile/mixer/paths/` that matches the speakers port which in my case is `analog-output-speaker`.
 
-Open the file `/usr/share/alsa-card-profile/mixer/paths/` + `your-output-name` + `.conf`
+It is **crucial** to pick the correct one, to verify you did, change `description-key` value to something else (e.g. by removing the last letter) and restart pipewire (`systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber`) the mixer path file name will show in pavucontrol or `pactl list sinks` instead of the actual port name:
 
-- Set `state.plugged = unknown` inside the **Jack** section that best matches the wired port name of your card, in my case is `analog-output-headphones` so I use `[Jack Headphone]` one:
-
-    ```ini
-    [Jack Headphone]
-    state.plugged = unknown
-    state.unplugged = unknown
-    ```
-
-- Comment (by adding semi-colon on start of line) the **Element** section that matches the port `[Jack ...]` in my case is `[Element Headphone]`:
-
-    ```ini
-    ; [Element Headphone]
-    ; switch = off
-    ; volume = off
-    ```
-
-Save the changes and restart the audio server by running:
-
-```sh
-systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber
+```yaml
+Ports:
+    analog-output-speaker: analog-output-speaker (type: Unknown, priority: 10000, availability group: Legacy 4, available)
 ```
+
+1. Change the `description-key` back to the default and **save the original content somewhere**, then:
+
+   - Set `state.plugged = unknown` inside the **Jack** section that best matches the wired port name of your card, in my case is `analog-output-headphones` so I use `[Jack Headphone]` one:
+
+       ```ini
+       [Jack Headphone]
+       state.plugged = unknown
+       state.unplugged = unknown
+       ```
+
+   - Comment (by adding semi-colon on start of line) the **Element** section that matches the port `[Jack ...]` in my case is `[Element Headphone]`:
+
+       ```ini
+       ; [Element Headphone]
+       ; switch = off
+       ; volume = off
+       ```
+
+2. Save the changes and restart the audio server by running:
+
+    ```sh
+    systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber
+    ```
 
 If everything went well you should have the speaker option available without having to unplug your wired device and
 
@@ -167,6 +163,8 @@ If everything went well you should have the speaker option available without hav
 ![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
 
 Good we're closer to our final goal, but you can stop here if this was your desired behavior...
+
+Note: An update may overwrite your change to the mixer path file, either make a backup and restore it after `alsa-card-profiles` is updated or figure out how to configure your package manager to not replace it. If you continue the tutorial we'll rename the mixer file and link it to our card using a custom card profile and this won't be a problem.
 
 ## 3 Splitting for simultaneous playback with alsa firmware patch (for different applications on each port)
 
@@ -219,7 +217,7 @@ Subsystem Id: 0x103c8575
 
 With the above we can start creating our patch file:
 
-- Create the file (don't copy as is, modify according to explanation bellow):
+1. Create the file (don't copy as is, modify according to explanation bellow):
 
     `/lib/firmware/alc-sound-patch.fw`
 
@@ -236,10 +234,11 @@ With the above we can start creating our patch file:
 
     Below `[hints]` we need to add what is called hint strings
 
-  - `indep_hp=yes` this will make for our jack output to be detected as an independent PCM stream with its own controls (meaning it will split away from internal speakers as a separate audio sink for us to play specific app stream on it).
+   - `indep_hp=yes` this will make for our jack output to be detected as an independent PCM stream with its own controls (meaning it will split away from internal speakers as a separate audio sink for us to play specific app stream on it).
 
-  - `vmaster=no` will disable the virtual Master control so we can control volume on each port individually.
-- Next create the following file:
+   - `vmaster=no` will disable the virtual Master control so we can control volume on each port individually.
+
+2. Create the following file:
 
     `/etc/modprobe.d/alsa-base.conf`
 
@@ -247,7 +246,7 @@ With the above we can start creating our patch file:
     options snd-hda-intel patch=alc-sound-patch.fw
     ```
 
-- **Reboot to apply the changes**
+3. **Reboot to apply the changes**
 
 ### 3.3 Verify that the patch works
 
@@ -269,9 +268,9 @@ card 0: PCH [HDA Intel PCH], device 2: ALC295 Alt Analog [ALC295 Alt Analog]
   Subdevice #0: subdevice #0
 ```
 
-Now the card `card 0` (ALC295), has an extra subdevice, interesting...
+Now the card ALC295 (`card 0`), has an extra sub device (`2`), interesting...
 
-We can confirm the playback (output) and capture (input) streams the card now has with `cat /proc/asound/pcm`
+Run `cat /proc/asound/pcm`, if there is a new sub device and has a playback sub-stream (`playback 1`) like below you can continue
 
 ```yaml
 00-00: ALC295 Analog : ALC295 Analog : playback 1 : capture 1
@@ -309,8 +308,8 @@ We can confirm the playback (output) and capture (input) streams the card now ha
 
 So my card's outputs are the following (yours may vary):
 
-- `0,0` Speakers (which also handles microphones, as we saw in `cat /proc/asound/pcm`)
-- `0,2` Headphones
+- Device `0,0` (card 0, device 0) handles Speakers (and also microphones, as we saw in `cat /proc/asound/pcm`)
+- Device `0,2` (card 0, device 2) handles Headphones
 
 ## 4 Making a custom alsa profile for our card
 
@@ -332,7 +331,7 @@ Ports: analog-output-speaker analog-output-headphones
 Active Port: analog-output-headphones
 ```
 
-Card sub devices and captures/outputs location:
+Card sub devices and playback (outputs) / capture (inputs) location:
 
 ```ini
 **** List of PLAYBACK Hardware Devices ****
@@ -353,13 +352,19 @@ card 0: PCH [HDA Intel PCH], device 2: ALC295 Alt Analog [ALC295 Alt Analog]
 So in my case I have:
 
 - Two ports: `analog-output-speaker analog-output-headphones`
-- Final port locations for the card 0
-  - `0,0` Speakers (also handles microphones)
-  - `0,2` Headphones
+- Device locations for the card 0 correspond to:
+  - Device `0,0` (card 0, device 0) Speakers (also handles microphones)
+  - Device `0,2` (card 0, device 2) Headphones
 
 ### 4.2 Create the profile
 
-Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/my-profile.conf` and adapt it to your system according to the comments
+Make a copy of the mixer path file (replace `analog-output-speaker` with you mixer path) and restore the contents you saved in [2 disable Headphone jack detection for speakers](#2-disable-headphone-jack-detection-for-speakers) to the original one.
+
+```sh
+sudo cp /usr/share/alsa-card-profile/mixer/paths/analog-output-speaker.conf /usr/share/alsa-card-profile/mixer/paths/9999-analog-output-speaker-split.conf
+```
+
+Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/9999-split-ports-profile.conf` and adapt it to your system according to the comments
 
 ```ini
 ; This will let alsa generate automatic profiles (e.g internal speaker + microphone)
@@ -367,74 +372,81 @@ Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/my-profile.
 auto-profiles = yes
 
 
-; This is the mapping for the internal speaker change the 0,0 to your subdevice location
-; You can change the description for this and other mappings if you want ;)
-; in paths output put the name of the from card details
+; device-strings describes the ALSA device string(s) that PulseAudio uses to open the device, where "%f" specifies the card number (should always be present in the string).
+
+; This is the mapping for the internal speaker
+; If needed, change the 0 in "hw:%f,0" to your sub device location
+; You can change the description for this and other mappings if you want
+; in paths output put the name of the previously created custom mixer path
 [Mapping analog-stereo-speaker]
 description = Speakers
-device-strings = hw:0,0
-paths-output = analog-output-speaker
+device-strings = hw:%f,0
+paths-output = 9999-analog-output-speaker-split
 channel-map = left,right
 direction = output
 
-; This is the mapping for the jack output change the 0,2 to your subdevice location
+; This is the mapping for the jack output (headphones)
+; If needed, change the 2 in "hw:%f,2" to your sub device location
 ; in paths output put the name of the from card details
-[Mapping analog-stereo-headphone]
+[Mapping analog-stereo-headphones]
 description = Headphones
-device-strings = hw:0,2
+device-strings = hw:%f,2
 paths-output = analog-output-headphones
 channel-map = left,right
 direction = output
 
 
-; This is the mapping that will handle internal and external microphones, as you could see the Card sub devices and captures/outputs location also had a capture device in the 0,0 subdevice location so let's add it here too (change the 0,0 to your subdevice location)
-; All the names here came from the default.conf profile set and you may have to adapt it if your input port name is not included
+; This is the mapping that will handle internal and external microphones, as you could see in `cat /proc/asound/pcm`, the card also had a capture port
+; in the 0,0 sub device location so let's add it here too (change the 0 in "hw:%f,0" to your sub device location that has the capture port)
+; All the paths-input names here came from the default.conf profile set and you may have to adapt it if your input port name is not included
 
 [Mapping analog-stereo-input]
 description = Microphone
-device-strings = hw:0,0
+device-strings = hw:%f,0
 channel-map = left,right
 paths-input = analog-input-front-mic analog-input-rear-mic analog-input-internal-mic analog-input-dock-mic analog-input analog-input-mic analog-input-linein analog-input-aux analog-input-video analog-input-tvtuner analog-input-fm analog-input-mic-line analog-input-headphone-mic analog-input-headset-mic
 direction = input
 
 
 ; Broken in parts the profile name means to join
-; The name of the Mapping containing the analog-output-headphones (output:analog-stereo-headphone)
+; The name of the Mapping containing the analog-output-headphones (output:analog-stereo-headphones)
 ; The name of the Mapping containing the analog-output-speaker (output:analog-stereo-speaker)
 ; The name of the Mapping containing the analog-stereo-input (input:analog-stereo-input)
 
 ; in output-mappings put the name of the output mappings
 ; input-mappings put the name of the input mappings
 
-; NOTE: Not to be confused width the paths-output inside the mapping, we're not using those directly
+; NOTE: Not to be confused width the paths-output/paths-input inside the mapping, we're not using those directly
 
 ; This is the profile that will have the internal speakers + jack output + all microphones
 ; in paths output put the name of the from card details
-[Profile output:analog-stereo-headphone+output:analog-stereo-speaker+input:analog-stereo-input]
+[Profile output:analog-stereo-headphones+output:analog-stereo-speaker+input:analog-stereo-input]
 description = Analog Stereo Duplex
-output-mappings = analog-stereo-headphone analog-stereo-speaker
+output-mappings = analog-stereo-headphones analog-stereo-speaker
 input-mappings = analog-stereo-input
 priority = 80
 
 ; This profile will have the internal speakers + jack output, but not microphones
-[Profile output:analog-stereo-headphone+output:analog-stereo-speaker]
+[Profile output:analog-stereo-headphones+output:analog-stereo-speaker]
 description = Analog Stereo Outputs Only
-output-mappings = analog-stereo-headphone analog-stereo-speaker
+output-mappings = analog-stereo-headphones analog-stereo-speaker
 priority = 70
 ```
 
 ### 4.3 Link the profile to the card
 
-Create the file `/lib/udev/rules.d/91-pipewire-alsa.rules` (don't copy as is, modify according to explanation bellow)
+Create the file `/lib/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
 
 ```sh
 SUBSYSTEM!="sound", GOTO="pipewire_end"
 ACTION!="change", GOTO="pipewire_end"
 KERNEL!="card*", GOTO="pipewire_end"
 
-SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", ENV{ACP_PROFILE_SET}="my-profile.conf"
+SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+ENV{ACP_PROFILE_SET}="9999-split-ports-profile.conf"
 
 LABEL="pipewire_end"
+
 ```
 
 You need to replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
@@ -473,6 +485,9 @@ Active Port: analog-output-speaker
 ## Credits & Resources
 
 - Docs
-  - [More Notes on HD-Audio Driver](https://docs.kernel.org/sound/hd-audio/notes.html)
+  - [Linux Kernel Sound Subsystem Documentation](https://www.kernel.org/doc/html/v6.7/sound/)
+    - [More Notes on HD-Audio Driver](https://www.kernel.org/doc/html/v6.7/sound/hd-audio/notes.html)
+    - [Proc Files of ALSA Drivers](https://www.kernel.org/doc/html/v6.7/sound/designs/procfile.html)
+  - [ALSA Documentation](https://www.alsa-project.org/wiki/Documentation)
 
 [How to output unique audio to multiple ports/profiles of a PulseAudio card?](https://unix.stackexchange.com/questions/401492/how-to-output-unique-audio-to-multiple-ports-profiles-of-a-pulseaudio-card)
