@@ -1,0 +1,8 @@
+SUBSYSTEM!="sound", GOTO="pipewire_end"
+ACTION!="change", GOTO="pipewire_end"
+KERNEL!="card*", GOTO="pipewire_end"
+
+SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+ENV{ACP_PROFILE_SET}="9999-split-ports-profile.conf"
+
+LABEL="pipewire_end"
