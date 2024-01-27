@@ -55,6 +55,10 @@ Run `pactl list cards` and save the output somewhere, bellow is a stripped
 Card #46
     Name: alsa_card.pci-0000_00_1f.3
     Driver: alsa
+    Properties:
+            api.alsa.path = "hw:0"
+            device.product.id = "0xa348"
+            device.vendor.id = "0x8086"
     ...
     Profiles:
             output:analog-stereo+input:analog-stereo: Analog Stereo Duplex (sinks: 1, sources: 1, priority: 6565, available: yes)
@@ -85,6 +89,8 @@ Card details:
 Name: alsa_card.pci-0000_00_1f.3
 Ports: analog-output-speaker analog-output-headphones
 Profiles: output:analog-stereo input:analog-stereo output:analog-stereo+input:analog-stereo
+device.product.id = "0xa348"
+device.vendor.id = "0x8086"
 ```
 
 As we can see, this laptop has three audio profiles, one for all audio outputs 
@@ -122,16 +128,28 @@ As we can see, there is only one audio sink that can play audio on the two outpu
 
 ## 2 disable Headphone jack detection for speakers
 
-To do this we need to modify the alsa mixer path in `/usr/share/alsa-card-profile/mixer/paths/` that matches the speakers port which in my case is `analog-output-speaker`.
+1. First copy the folder `/usr/share/alsa-card-profile/mixer/paths/` to `/etc/alsa-card-profile/mixer/paths/`
 
-It is **crucial** to pick the correct one, to verify you did, change `description-key` value to something else (e.g. by removing the last letter) and restart pipewire (`systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber`) the mixer path file name will show in pavucontrol or `pactl list sinks` instead of the actual port name:
+    ```sh
+    sudo cp -r /usr/share/alsa-card-profile/mixer/paths/ /etc/alsa-card-profile/mixer/paths/
+    ```
 
-```yaml
-Ports:
-    analog-output-speaker: analog-output-speaker (type: Unknown, priority: 10000, availability group: Legacy 4, available)
-```
+2. Next we need to modify the mixer path in `/etc/alsa-card-profile/mixer/paths/` that matches the speakers port which in my case is `analog-output-speaker`.
 
-1. Change the `description-key` back to the default and **save the original content somewhere**, then:
+    It is **crucial** to pick the correct one, to verify you did, change `description-key` value to something else (e.g. by removing the last letter) and restart pipewire (`systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber`) the mixer path file name will show in pavucontrol or `pactl list sinks` instead of the actual port name:
+
+    ```yaml
+    Ports:
+        analog-output-speaker: analog-output-speaker (type: Unknown, priority: 10000, availability group: Legacy 4, available)
+    ```
+
+3. Delete all the other files in `/etc/alsa-card-profile/mixer/paths/` leaving only your mixer path and the common file e.g:
+
+    ```sh
+    find /etc/alsa-card-profile/mixer/paths/ -type f ! -name 'analog-output-speaker.conf' ! -name 'analog-output.conf.common' -exec rm -f {} +
+    ```
+
+4. Change the `description-key` back to the default, then:
 
    - Set `state.plugged = unknown` inside the **Jack** section that best matches the wired port name of your card, in my case is `analog-output-headphones` so I use `[Jack Headphone]` one:
 
@@ -149,22 +167,20 @@ Ports:
        ; volume = off
        ```
 
-2. Save the changes and restart the audio server by running:
+5. Save the changes and restart the audio server by running:
 
     ```sh
     systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber
     ```
 
-If everything went well you should have the speaker option available without having to unplug your wired device and
+    If everything went well you should have the speaker option available without having to unplug your wired device and
 
-- Should be able to play audio on them (individually)
-- Audio streams should still change automatically from speakers to your wired output and vice versa when plugging/unplugging a wired device
+   - Should be able to play audio on them (individually)
+   - Audio streams should still change automatically from speakers to your wired output and vice versa when plugging/unplugging a wired device
 
-![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
+    ![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
 
 Good we're closer to our final goal, but you can stop here if this was your desired behavior...
-
-Note: An update may overwrite your change to the mixer path file, either make a backup and restore it after `alsa-card-profiles` is updated or figure out how to configure your package manager to not replace it. If you continue the tutorial we'll rename the mixer file and link it to our card using a custom card profile and this won't be a problem.
 
 ## 3 Splitting for simultaneous playback with alsa firmware patch (for different applications on each port)
 
@@ -199,6 +215,8 @@ We can confirm the playback (output) and capture (input) streams the card curren
 
 ### 3.2 Making the alsa firmware patch file
 
+#### Manually
+
 Run
 
 ```sh
@@ -219,14 +237,14 @@ With the above we can start creating our patch file:
 
 1. Create the file (don't copy as is, modify according to explanation bellow):
 
-    `/lib/firmware/alc-sound-patch.fw`
+    `/lib/firmware/hda-jack-retask.fw`
 
     ```ini
     [codec]
     0x10ec0295 0x103c8575 0
 
     [hints]
-    indep_hp=1
+    indep_hp=yes
     vmaster=no
     ```
 
@@ -243,10 +261,92 @@ With the above we can start creating our patch file:
     `/etc/modprobe.d/alsa-base.conf`
 
     ```sh
-    options snd-hda-intel patch=alc-sound-patch.fw
+    options snd-hda-intel patch=hda-jack-retask.fw
     ```
 
-3. **Reboot to apply the changes**
+#### Using hdajackretask
+
+1. Run `hdajackretask`
+2. In the Select a codec drop-down select your card
+3. In the Options section check `Parser hints`
+4. In the Hints list set `indep_hp` and `` to yes with double click on them.
+5. Press `Install boot override`
+6. Open the file `/lib/firmware/hda-jack-retask.fw` and add `vmaster=no` below `indep_hp=yes`
+
+#### Using script and systemd unit for immutable distros
+
+For immutable distros `/lib/firmware/` is not writable. As a workaround you can use a systemd unit that sets the hints on boot
+
+1. Create the file `/etc/systemd/system/alsa_split_ports.service`
+
+   ```ini
+    [Unit]
+    Description=ALSA SPLIT PORTS SERVICE.
+    After=default.target
+
+    [Service]
+    Type=simple
+    ExecStart=/usr/local/bin/alsa-split-ports.sh
+    PIDFile=/tmp/scripts_launcher.pid
+    Nice=19
+    ExitType=cgroup
+
+    [Install]
+    WantedBy=default.target
+   ```
+
+2. Create the script `/usr/local/bin/alsa-split-ports-hints.sh` and set `CODEC` `VENDOR_ID` and `SUBSYSTEN_ID` with the ones from your card from `cat /proc/asound/card*/codec#* | grep -E 'Codec|Vendor Id|Subsystem Id|Address'`, note how the `CODEC` variable doesn't have the vendor name (`Realtek`) because whe are matching against `/sys/class/sound/hw*/chip_name`
+
+   ```sh
+    #!/usr/bin/env bash
+    CODEC="ALC295"
+    VENDOR_ID="0x10ec0295"
+    SUBSYSTEN_ID="0x103c8575"
+    HINTS="indep_hp = yes
+    vmaster = no
+    "
+
+    get_codec_hwdep() {
+        local codec=$1
+        local vendor_id=$2
+        local subsystem_id=$3
+        local addr=""
+        [[ -z "$codec" || -z "$vendor_id" || -z "$subsystem_id" ]] && { echo "ERROR: Not enough arguments given"; return; }
+        for file in /sys/class/sound/hw*; do
+            if [[ -n "$addr" ]]; then
+            echo "$addr"
+            return
+            fi
+            if grep -q "$codec" "$file/chip_name" && grep -q "$vendor_id" "$file/vendor_id" && grep -q "$subsystem_id" "$file/subsystem_id"; then
+                addr=$file
+            fi
+        done
+        if [[ -z "$addr" ]]; then
+        echo "ERROR: Could not get address for c:$codec v:$vendor_id s:$subsystem_id"
+        return
+        fi
+    }
+    # get_codec_hwdep "$CODEC" "$VENDOR_ID" "$SUBSYSTEN_ID"
+    hwdep="$(get_codec_hwdep "$CODEC" "$VENDOR_ID" "$SUBSYSTEN_ID")"
+
+    if [[ "$hwdep" == *"ERROR"* || -z "$hwdep" ]]; then
+    exit 1
+    fi
+
+
+    while IFS=$'\n' read -r line; do
+    if [[ -z "$line" ]]; then
+        continue
+    fi
+    echo "$line > ${hwdep}/hints"
+    echo "$line" > "${hwdep}"/hints
+    done <<< "$HINTS"
+
+    echo "echo 1 > ${hwdep}/reconfig"
+    echo 1 > "${hwdep}"/reconfig
+   ```
+
+#### Reboot to apply the changes
 
 ### 3.3 Verify that the patch works
 
@@ -291,7 +391,7 @@ Run `cat /proc/asound/pcm`, if there is a new sub device and has a playback sub-
 2. Finally, save it by running
 
     ```sh
-    sudo alsactl store
+    sudo alsactl store --file /etc/asound.conf
     ```
 
 3. Stop any running pipewire services (may need to stop it multiple times if it gets restarted):
@@ -358,13 +458,13 @@ So in my case I have:
 
 ### 4.2 Create the profile
 
-Make a copy of the mixer path file (replace `analog-output-speaker` with you mixer path) and restore the contents you saved in [2 disable Headphone jack detection for speakers](#2-disable-headphone-jack-detection-for-speakers) to the original one.
+Rename your mixer path file from [2 disable Headphone jack detection for speakers](#2-disable-headphone-jack-detection-for-speakers) like below:
 
 ```sh
-sudo cp /usr/share/alsa-card-profile/mixer/paths/analog-output-speaker.conf /usr/share/alsa-card-profile/mixer/paths/9999-analog-output-speaker-split.conf
+sudo cp /etc/alsa-card-profile/mixer/paths/analog-output-speaker.conf /etc/alsa-card-profile/mixer/paths/analog-output-speaker-split.conf
 ```
 
-Now create the file `/usr/share/alsa-card-profile/mixer/profile-sets/9999-split-ports-profile.conf` and adapt it to your system according to the comments
+Now create the file `/etc/alsa-card-profile/mixer/profile-sets/split-ports-profile.conf` and adapt it to your system according to the comments
 
 ```ini
 ; This will let alsa generate automatic profiles (e.g internal speaker + microphone)
@@ -381,7 +481,7 @@ auto-profiles = yes
 [Mapping analog-stereo-speaker]
 description = Speakers
 device-strings = hw:%f,0
-paths-output = 9999-analog-output-speaker-split
+paths-output = analog-output-speaker-split
 channel-map = left,right
 direction = output
 
@@ -435,29 +535,29 @@ priority = 70
 
 ### 4.3 Link the profile to the card
 
-Create the file `/lib/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
+1. Create the file `/etc/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
 
-```sh
-SUBSYSTEM!="sound", GOTO="pipewire_end"
-ACTION!="change", GOTO="pipewire_end"
-KERNEL!="card*", GOTO="pipewire_end"
+    ```sh
+    SUBSYSTEM!="sound", GOTO="pipewire_end"
+    ACTION!="change", GOTO="pipewire_end"
+    KERNEL!="card*", GOTO="pipewire_end"
 
-SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
-ENV{ACP_PROFILE_SET}="9999-split-ports-profile.conf"
+    SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+    ENV{ACP_PROFILE_SET}="split-ports-profile.conf"
 
-LABEL="pipewire_end"
+    LABEL="pipewire_end"
 
-```
+    ```
 
-You need to replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
+2. Replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
 
-```yaml
-00:1f.3 Audio device [0403]: Intel Corporation Cannon Lake PCH cAVS [8086:a348] (rev 10)
-```
+    ```yaml
+    00:1f.3 Audio device [0403]: Intel Corporation Cannon Lake PCH cAVS [8086:a348] (rev 10)
+    ```
 
-_vendor id is the first element between the square brackets and separated by a colon, second element is the device id_
+    _vendor id is the first element between the square brackets and separated by a colon, second element is the device id_
 
-**Reboot to apply the changes**
+3. **Reboot to apply the changes**
 
 ### 5 Verify the split worked
 
