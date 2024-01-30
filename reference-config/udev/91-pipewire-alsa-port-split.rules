@@ -5,4 +5,8 @@ KERNEL!="card*", GOTO="pipewire_end"
 SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
 ENV{ACP_PROFILE_SET}="split-ports-profile.conf"
 
+# SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+# ENV{ACP_PROFILE_SET}="split-ports-profile.conf", \
+# RUN+="/usr/local/bin/alsa-split-ports.sh"
+
 LABEL="pipewire_end"

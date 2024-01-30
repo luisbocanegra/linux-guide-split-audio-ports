@@ -44,3 +44,7 @@ done <<< "$HINTS"
 
 echo "echo 1 > ${hwdep}/reconfig"
 echo 1 > "${hwdep}"/reconfig
+
+# give some time to intialize before restoring
+sleep 5
+alsactl restore

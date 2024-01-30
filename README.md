@@ -46,7 +46,7 @@ That is:
 
 ## 1 Preparations, analyze how the card appears on Linux
 
-### 1.1 Gather some information about the card and the available audio sinks
+### 1.1 Gather some information about the card
 
 Run `pactl list cards` and save the output somewhere, bellow is a stripped
  version of mine to keep the important things
@@ -273,27 +273,22 @@ With the above we can start creating our patch file:
 5. Press `Install boot override`
 6. Open the file `/lib/firmware/hda-jack-retask.fw` and add `vmaster=no` below `indep_hp=yes`
 
-#### Using script and systemd unit for immutable distros
+#### Using script and udev rule for immutable distros
 
-For immutable distros `/lib/firmware/` is not writable. As a workaround you can use a systemd unit that sets the hints on boot
+For immutable distros `/lib/firmware/` is not writable. As a workaround you can use the same udev rule that sets the hints on boot. **This method may cause some noises during boot and is not warranted to be as reliable as the firmware one, if that's the case suggestions to improve it are very welcome**
 
-1. Create the file `/etc/systemd/system/alsa_split_ports.service`
+1. Create the file `/etc/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
 
-   ```ini
-    [Unit]
-    Description=ALSA SPLIT PORTS SERVICE.
-    After=default.target
+    ```sh
+    SUBSYSTEM!="sound", GOTO="pipewire_end"
+    ACTION!="change", GOTO="pipewire_end"
+    KERNEL!="card*", GOTO="pipewire_end"
 
-    [Service]
-    Type=simple
-    ExecStart=/usr/local/bin/alsa-split-ports.sh
-    PIDFile=/tmp/scripts_launcher.pid
-    Nice=19
-    ExitType=cgroup
+    SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+    RUN+="/usr/local/bin/alsa-split-ports.sh"
 
-    [Install]
-    WantedBy=default.target
-   ```
+    LABEL="pipewire_end"
+    ```
 
 2. Create the script `/usr/local/bin/alsa-split-ports-hints.sh` and set `CODEC` `VENDOR_ID` and `SUBSYSTEN_ID` with the ones from your card from `cat /proc/asound/card*/codec#* | grep -E 'Codec|Vendor Id|Subsystem Id|Address'`, note how the `CODEC` variable doesn't have the vendor name (`Realtek`) because whe are matching against `/sys/class/sound/hw*/chip_name`
 
@@ -344,6 +339,10 @@ For immutable distros `/lib/firmware/` is not writable. As a workaround you can 
 
     echo "echo 1 > ${hwdep}/reconfig"
     echo 1 > "${hwdep}"/reconfig
+
+    # wait some time to intialize before restoring
+    sleep 5
+    alsactl restore
    ```
 
 #### Reboot to apply the changes
@@ -535,7 +534,7 @@ priority = 70
 
 ### 4.3 Link the profile to the card
 
-1. Create the file `/etc/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
+1. Create the file `/etc/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow). Also, if using the udev rule to apply hints from [Using script and udev rule for immutable distros](#using-script-and-udev-rule-for-immutable-distros) you can use the commented rule instead.
 
     ```sh
     SUBSYSTEM!="sound", GOTO="pipewire_end"
@@ -545,17 +544,14 @@ priority = 70
     SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
     ENV{ACP_PROFILE_SET}="split-ports-profile.conf"
 
+    # SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
+    # ENV{ACP_PROFILE_SET}="split-ports-profile.conf" \
+    # RUN+="/usr/local/bin/alsa-split-ports.sh"
+
     LABEL="pipewire_end"
-
     ```
 
-2. Replace the vendor and device ids but leaving the 0x that precedes each, you can get them from by running `lcpci --nn`
-
-    ```yaml
-    00:1f.3 Audio device [0403]: Intel Corporation Cannon Lake PCH cAVS [8086:a348] (rev 10)
-    ```
-
-    _vendor id is the first element between the square brackets and separated by a colon, second element is the device id_
+2. Replace the vendor and device id with `device.vendor.id` and `device.product.id` respectively, that you got in [1.1 Gather some information about the card](#11-gather-some-information-about-the-card)
 
 3. **Reboot to apply the changes**
 
