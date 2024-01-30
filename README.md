@@ -275,7 +275,7 @@ With the above we can start creating our patch file:
 
 #### Using script and udev rule for immutable distros
 
-For immutable distros `/lib/firmware/` is not writable. As a workaround you can use the same udev rule that sets the hints on boot. **This method may cause some noises during boot and is not warranted to be as reliable as the firmware one, if that's the case suggestions to improve it are very welcome**
+For immutable distros `/lib/firmware/` is not writable. As a workaround you can use an udev rule that sets the hints on boot. **This method may cause some noises during boot and is not warranted to be as reliable as the firmware one, if that's the case, suggestions to improve it are welcome**
 
 1. Create the file `/etc/udev/rules.d/91-pipewire-alsa-port-split.rules` (don't copy as is, modify according to explanation bellow)
 
