@@ -5,6 +5,6 @@
 0x12 0xB7A60130
 
 [hints]
-indep_hp=1
+indep_hp=yes
 vmaster=no
 

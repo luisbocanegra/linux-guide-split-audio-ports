@@ -1,0 +1,13 @@
+[Unit]
+Description=ALSA SPLIT PORTS SERVICE.
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/alsa-split-ports.sh
+PIDFile=/tmp/scripts_launcher.pid
+Nice=19
+ExitType=cgroup
+
+[Install]
+WantedBy=default.target
