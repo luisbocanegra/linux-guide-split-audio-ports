@@ -390,7 +390,7 @@ Run `cat /proc/asound/pcm`, if there is a new sub device and has a playback sub-
 2. Finally, save it by running
 
     ```sh
-    sudo alsactl store --file /etc/asound.conf
+    sudo alsactl store
     ```
 
 3. Stop any running pipewire services (may need to stop it multiple times if it gets restarted):
