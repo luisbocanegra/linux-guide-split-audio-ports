@@ -49,7 +49,7 @@ If you follow till the end
 - alsa-card-profiles
 - alsa-utils
 - alsa-tools
-- pavucontrol (optional)
+- pavucontrol
 
 ## 1 Preparations, analyze how the card appears on Linux
 
@@ -578,6 +578,10 @@ So in my case I have:
 
 ### 5 Verify the split worked
 
+Open pavucontrol and in the **Configuration** tab select the `Analog Stereo Duplex` profile for your card
+
+![image](https://github.com/luisbocanegra/linux-guide-split-audio-ports/assets/15076387/f6d57989-4e03-4f17-a28d-a5421577dbb2)
+
 Run
 
 ```sh
@@ -590,13 +594,13 @@ I everything went well you should have a separate audio sink for each output:
 State: IDLE
 Name: alsa_output.pci-0000_00_1f.3.analog-stereo-headphones
 Description: Built-in Audio Headphones
-        device.profile-set = "split-ports-profile.conf"
+        device.profile-set = "/etc/alsa-card-profile/mixer/profile-sets/split-ports-profile.conf"
 Ports:
 Active Port: analog-output-headphones
 State: SUSPENDED
 Name: alsa_output.pci-0000_00_1f.3.analog-stereo-speaker.2
 Description: Built-in Audio Speakers
-        device.profile-set = "split-ports-profile.conf"
+        device.profile-set = "/etc/alsa-card-profile/mixer/profile-sets/split-ports-profile.conf"
 Ports:
 Active Port: analog-output-speaker-split
 ```
