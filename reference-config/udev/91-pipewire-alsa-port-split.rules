@@ -3,10 +3,11 @@ ACTION!="change", GOTO="pipewire_end"
 KERNEL!="card*", GOTO="pipewire_end"
 
 SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
-ENV{ACP_PROFILE_SET}="split-ports-profile.conf"
+ENV{ACP_PROFILE_SET}="/etc/alsa-card-profile/mixer/profile-sets/split-ports-profile.conf"
 
+# Use this instead for immutable distributions
 # SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", ATTRS{device}=="0xa348", \
-# ENV{ACP_PROFILE_SET}="split-ports-profile.conf", \
+# ENV{ACP_PROFILE_SET}="/etc/alsa-card-profile/mixer/profile-sets/split-ports-profile.conf", \
 # RUN+="/usr/local/bin/alsa-split-ports.sh"
 
 LABEL="pipewire_end"
