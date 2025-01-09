@@ -16,7 +16,7 @@ And this is how you route programs' audio to an individual output:
 
 ![volume mixer in windows](pics/windows-volume-mixer.png)
 
-On Linux I don't have such an option, so can only listen one output at a time
+On Linux I didn't have such an option, so can only listen one output at a time
 
 That is:
 
@@ -32,26 +32,34 @@ That is:
 
 ## The final result
 
-If you follow until [part 2](https://github.com/luisbocanegra/linux-guide-split-audio-ports#3-splitting-for-simultaneous-playback-with-alsa-firmware-patch-for-different-applications-on-each-port)
+If you follow until the end of section [2 disable Headphone jack detection for speakers](#2-disable-headphone-jack-detection-for-speakers)
 
-- Allow selecting and playing audio from the internal speakers while a wired output is connected
+- Allow switching between ports **Speakers** and **Headphones** (only one port can play audio at a time)
+- Previously unavailable port becomes available for selection e.g **Speakers port** while **Headphones** are connected
 
-If you follow till the end
+![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
 
-- Have a separate audio sink for each output
-- Play different audio streams on each card port, simultaneously (e.g. Spotify on speakers and Firefox on Headphones)
+If you follow till the end (**the real deal**)
 
-![pavucontrol with multistreaming enabled](pics/linux-full-multistreaming.png) **Note:** The program used in above screenshots is `pavucontrol`
+- Have a separate audio sink for each output (ports become actual sinks)
+- Per sink volume control
+- Play different audio streams on each output, simultaneously (e.g. Spotify on speakers and Firefox on Headphones)
+
+![pavucontrol with multistreaming enabled](pics/linux-full-multistreaming.png) **Note:** The program used in above screenshots is `pavucontrol-qt`
 
 ## Requirements
 
-- PipeWire
-- alsa-card-profiles
-- alsa-utils
-- alsa-tools
-- pavucontrol
+- Software
+  - PipeWire
+  - alsa-card-profiles
+  - alsa-utils
+  - alsa-tools
+  - pavucontrol
+- Patience
 
 ## 1 Preparations, analyze how the card appears on Linux
+
+It is recommended that you keep these the output of these commands organized in a file somewhere in case you get stuck and need help, follow [this comment as template](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/9#issue-2165147377). You should include that when [opening a new issue](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/new)
 
 ### 1.1 Gather some information about the card
 
@@ -146,20 +154,30 @@ As we can see, there is only one audio sink that can play audio on the two outpu
 
 2. Next we need to modify the mixer path in `/etc/alsa-card-profile/mixer/paths/` that matches the speakers port, in my case is `analog-output-speaker`.
 
-    It is **crucial** to pick the correct one, to verify you did, change `description-key` value to something else (e.g. by removing the last letter) and restart pipewire (`systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber`) the mixer path file name will show in pavucontrol or `pactl list sinks` instead of the actual port name:
+    It is **crucial** to pick the correct one, to verify you did:
+
+    Change `description-key` value to something else (e.g. by removing the last letter) and restart pipewire (`systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber`). In my case it's `description-key = analog-output-speaker`
+
+    The mixer path file name will show in pavucontrol or `pactl list sinks` instead of the actual port name and `type:` will become `Unknown`:
 
     ```yaml
+    # BEFORE changing description-key
+    Ports:
+        analog-output-speaker: Speakers (type: Speaker, priority: 10000, availability group: Legacy 4, available)
+    # AFTER changing description-key
     Ports:
         analog-output-speaker: analog-output-speaker (type: Unknown, priority: 10000, availability group: Legacy 4, available)
     ```
 
-3. Delete all the other files in `/etc/alsa-card-profile/mixer/paths/` leaving only your mixer path and the common file e.g:
+    Once verified, change the `description-key` back to the default value
+
+3. Delete all the other files in `/etc/alsa-card-profile/mixer/paths/` leaving only your mixer path (in my case is `analog-output-speaker`) and the common file e.g:
 
     ```sh
     sudo find /etc/alsa-card-profile/mixer/paths/ -type f ! -name 'analog-output-speaker.conf' ! -name 'analog-output.conf.common' -exec rm -f {} +
     ```
 
-4. Change the `description-key` back to the default, then:
+4. Edit the mixer path to disable Jack detection and auto-muting:
 
    - Set `state.plugged = unknown` inside the **Jack** section that best matches the wired port name of your card, in my case is `analog-output-headphones` so I use `[Jack Headphone]` one:
 
@@ -183,14 +201,34 @@ As we can see, there is only one audio sink that can play audio on the two outpu
     systemctl restart --user pipewire pipewire-pulse pipewire.socket wireplumber
     ```
 
-    If everything went well you should have the speaker option available without having to unplug your wired device and
+### 2.1 Verify it worked
 
-   - Should be able to play audio on them (individually)
-   - Audio streams should still change automatically from speakers to your wired output and vice versa when plugging/unplugging a wired device
+If everything went well you should have the speaker option available without having to unplug your wired device and:
 
-    ![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
+- Should be able to play audio on them (individually)
+- Audio streams should still change automatically from speakers to your wired output and vice versa when plugging/unplugging a wired device
+
+![pavucontrol with speakers available](pics/linux-audio-mixer-speakers-available.png)
 
 Congratulations! We're closer to our final goal, but you may stop here if this was your desired behavior 🙂
+
+Continue to [3.2 Making the alsa firmware patch file](#32-making-the-alsa-firmware-patch-file) for **the real deal**
+
+### 2.2 Can switch to output X when Y is connected but X has no audio (even when un-muted)
+
+Skip this section if both outputs play sound when you switch ports without having to unplug either of them
+
+In some cards, connecting multiple outputs causes one of them to stop working (see [Issue #19: Lineout output doesn't work while headphones are plugged in](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/19)), setting `model=dual-codecs` may help:
+
+1. Create the following file:
+
+    `/etc/modprobe.d/alsa-base.conf`
+
+    ```sh
+    options snd-hda-intel model=dual-codecs
+    ```
+
+2. **Reboot to apply the changes** and verify again [2.1 Verify it worked](#21-verify-it-worked)
 
 ## 3 Splitting for simultaneous playback with alsa firmware patch (for different applications on each port)
 
@@ -225,7 +263,7 @@ We can confirm the playback (output) and capture (input) streams the card curren
 
 ### 3.2 Making the alsa firmware patch file
 
-#### Option 1 Using hdajackretask
+#### Option 1 Using hdajackretask (non-immutable distributions)
 
 1. Run `hdajackretask`
 2. In the Select a codec drop-down select your card
@@ -276,13 +314,15 @@ With the above we can start creating our patch file:
 
    - `vmaster=no` will disable the virtual Master control so we can control volume on each port individually.
 
-2. Create the following file:
+2. Create/edit the following file:
 
     `/etc/modprobe.d/alsa-base.conf`
 
-    ```sh
+    ```ini
     options snd-hda-intel patch=hda-jack-retask.fw
     ```
+
+    **NOTE** If you have `options snd-hda-intel model=dual-codecs` from [2 disable Headphone jack detection for speakers](#2-disable-headphone-jack-detection-for-speakers) keep it and add the above one below it.
 
 3. **Reboot to apply the changes**
 
