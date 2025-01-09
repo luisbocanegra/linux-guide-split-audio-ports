@@ -59,7 +59,10 @@ If you follow till the end (**the real deal**)
 
 ## 1 Preparations, analyze how the card appears on Linux
 
-It is recommended that you keep these the output of these commands organized in a file somewhere in case you get stuck and need help, follow [this comment as template](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/9#issue-2165147377). You should include that when [opening a new issue](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/new)
+> [!IMPORTANT]
+> It is recommended that you keep these the output of these commands organized in a file somewhere in case you get stuck and need help.
+>
+> When requesting help you **must** follow the [Help request issue template](https://github.com/luisbocanegra/linux-guide-split-audio-ports/issues/new?assignees=&labels=help-request&projects=&template=help_request.md&title=%5BHelp+request%5D%3A+).
 
 ### 1.1 Gather some information about the card
 
